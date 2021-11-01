@@ -1,7 +1,9 @@
-# AP1-EC-TrabalhoFinal
+# AP1-EC-TESTEFINAL-APRESENTAÇÃO TRABALHO
 
 # Aluno
 # 202104977- João Pedro Amaro Marques Nascimento Feitosa
+#obs: infelizmente tive um único problema com o código, n consegui achar o motivo de não saber como localizar os clientes. Tentei reeencrever a função que usei mas não consegui.
+#Obs: o problema do código foi esse, o restante está fluindo normalmente.
 
 #include <stdio.h>
 #include <stdlib.h>
