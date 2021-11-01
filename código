@@ -1,0 +1,1121 @@
+# AP1-EC-TrabalhoFinal
+
+# Aluno
+# 202104977- João Pedro Amaro Marques Nascimento Feitosa
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <time.h>
+#define CLIENTES
+#define MAXCLIENTES 100
+#define MOVIMENTOS
+
+enum TipoMovimento {
+  CREDITO,
+  DEBITO
+};
+
+typedef struct {
+  
+  int idxConta;
+  time_t segundos;
+  float valor;
+  enum TipoMovimento tipo;
+  char descricao[100];
+
+} Movimento;
+
+typedef struct {
+    
+    int codigo;
+    char nome[100];
+    long int cpfCnpj;
+    long int telefone;
+    char endereco[100];
+    
+} Cliente;
+
+typedef struct {
+    
+    int codigoCliente;
+    int agencia;
+    int numeroDaConta;
+    float saldo;
+
+} Conta;
+
+Cliente clientes[MAXCLIENTES];
+Conta contas[200];
+Movimento movimentos[1000];
+
+int idxContas=-1;
+int idxMovimentos=-1;
+int idxClientes=-1;
+
+void limparBuffer () {
+    
+  int ch;
+  while ((ch = fgetc(stdin)) != EOF && ch != '\n');
+
+}
+
+void incluirMovimento(Movimento movimento) {
+  
+    idxMovimentos++;
+
+    movimentos[idxMovimentos].idxConta=movimento.idxConta;
+    movimentos[idxMovimentos].segundos=time(NULL);
+    movimentos[idxMovimentos].valor=movimento.valor;
+    movimentos[idxMovimentos].tipo=movimento.tipo;
+    memcpy(movimentos[idxMovimentos].descricao, movimento.descricao, sizeof movimentos[idxMovimentos].descricao);
+    
+    contas[movimento.idxConta].saldo += (movimento.tipo == CREDITO) ? movimento.valor : (movimento.valor * -1);
+
+}
+
+int buscarPrimeiroMovimentoDaConta(int idxConta) {
+
+    int laco;
+
+    for (laco = 0; laco <= idxMovimentos; laco++) {
+
+        if (idxConta == movimentos[laco].idxConta) {
+
+            return laco;
+
+        }
+
+    }
+
+    return -1;
+
+}
+
+void excluirMovimento(int idx) {
+
+    if (idx >= 0 && idx <= idxMovimentos) {
+        
+        int laco;
+
+        for (laco = idx;laco < idxMovimentos;laco++) {
+            
+            movimentos[laco].idxConta=movimentos[laco+1].idxConta;
+            movimentos[laco].segundos=movimentos[laco+1].segundos;
+            movimentos[laco].valor=movimentos[laco+1].valor;
+            movimentos[laco].tipo=movimentos[laco+1].tipo;
+            memcpy(movimentos[laco].descricao, movimentos[laco+1].descricao, sizeof movimentos[laco+1].descricao);
+        }
+        idxMovimentos--;   
+    }
+}
+
+void excluirMovimentosDaConta(int idxConta) {
+    
+    int alvo;
+
+    while ((alvo = buscarPrimeiroMovimentoDaConta(idxConta)) >= 0) {
+
+        excluirMovimento(alvo);
+        
+    }
+
+}
+
+void mostrarMovimento(Movimento movimento) {
+
+  printf("Tipo : %s\n", (movimento.tipo == CREDITO) ? "CREDITO" : "DEBITO");
+  printf("Valor  : %0.2f\n", movimento.valor);
+
+  struct tm tm = *localtime(&movimento.segundos);
+  printf("Data/Hora : %02d/%02d/%d %02d:%02d:%02d\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+  printf("Descriçãoao : %s\n", movimento.descricao);
+
+}
+
+void saqueConta() {
+
+    Conta conta;
+
+    limparBuffer();
+    printf("\nInsira a agência cliente por favor : ");
+    scanf("%d", &conta.agencia);
+
+    limparBuffer();
+    printf("Insira o número da conta por favor : ");
+    scanf("%d", &conta.numeroDaConta);
+
+    int alvo=localizarConta(conta);
+
+    if (alvo < 0) {
+
+        printf("\nConta não encontrada!\n");
+        return;
+
+    } else {
+        
+        Movimento movimento;
+        movimento.idxConta=alvo;
+        movimento.tipo = DEBITO;
+
+        limparBuffer();
+        printf("Insira o valor que deseja sacar : ");
+        scanf("%f", &movimento.valor);
+
+        if (contas[alvo].saldo - movimento.valor < 0) {
+
+            printf("\nErro: Impossível realizar o saque.Verifque seu saldo");
+
+            return;
+
+        } else {
+            
+            limparBuffer();
+            printf("Descrição do saque : ");
+            fgets(movimento.descricao, 100, stdin);
+
+            incluirMovimento(movimento);
+            printf("\nSaque realizado com sucesso!\n");
+
+        }
+
+    } 
+
+}
+
+void depositarConta() {
+    
+    Conta conta;
+
+    limparBuffer();
+    printf("\nInsira a agência do cliente por favor : ");
+    scanf("%d", &conta.agencia);
+
+    limparBuffer();
+    printf("Insira o número da conta por favor : ");
+    scanf("%d", &conta.numeroDaConta);
+
+    int alvo=localizarConta(conta);
+
+    if (alvo < 0) {
+
+        printf("\nConta não encontrada!\n");
+        return;
+
+    } else {
+        
+        Movimento movimento;
+        movimento.idxConta=alvo;
+        movimento.tipo = CREDITO;
+
+        limparBuffer();
+        printf("Insira o valor que deseja depositar : ");
+        scanf("%f", &movimento.valor);
+        
+        limparBuffer();
+        printf("Descrição do depósito : ");
+        fgets(movimento.descricao, 100, stdin);
+        
+        incluirMovimento(movimento);
+
+        printf("\nDepósito realizado com sucesso!\n");
+
+    }
+}
+
+void transferenciaConta() {
+
+    Conta conta;
+    
+    limparBuffer();
+    printf("\nInsira a sua agência por favor: ");
+    scanf("%d", &conta.agencia);
+
+    limparBuffer();
+    printf("Insira o número de sua conta por favor : ");
+    scanf("%d", &conta.numeroDaConta);
+
+    int origem=localizarConta(conta);
+
+    if (origem < 0) {
+
+        printf("\nConta não encontrada!\n");
+        return;
+
+    } else {
+        
+        Movimento movimento;
+
+        depositarConta(contas[origem]);
+
+        limparBuffer();
+        printf("\nInsira o valor que deseja transferir! : ");
+        scanf("%f", &movimento.valor);
+
+        if (contas[origem].saldo - movimento.valor < 0) {
+
+            printf("\nErro: Impossível realizar a transferência\n");
+            return;
+
+        } else {
+            
+            limparBuffer();
+            printf("\nInsira a agência que deseja enviar : ");
+            scanf("%d", &conta.agencia);
+
+            limparBuffer();
+            printf("Insira o número da conta que deseja enviar : ");
+            scanf("%d", &conta.numeroDaConta);
+
+            int destino=localizarConta(conta);
+
+            if (destino < 0 || destino == origem) {
+
+                printf("\nConta não encontrada!\n");
+                return;
+
+            } else {
+                
+                depositarConta(contas[destino]);
+                
+                sprintf(movimento.descricao, "Transferência para conta : {%d}-{%d}", contas[destino].agencia, contas[destino].numeroDaConta);
+                movimento.tipo = DEBITO;
+                movimento.idxConta = origem;
+                incluirMovimento(movimento);
+                
+                sprintf(movimento.descricao, "Transferência de conta : {%d}-{%d}", contas[origem].agencia, contas[origem].numeroDaConta);
+                movimento.tipo = CREDITO;
+                movimento.idxConta = destino;
+                incluirMovimento(movimento);
+
+                printf("\nTransferência bem sucedida!!\n");
+
+            }
+
+        }
+
+    }    
+    
+}
+
+//Adesão e organizaão do cliente
+
+void incluirCliente (Cliente cliente) {
+    
+    if (idxClientes == (MAXCLIENTES-1)) {
+
+        printf("\nErro: Impossível cadastrar mais contas.Sistema Cheio!\n");
+        return;
+        
+    }
+
+    int posicao = 0;
+    
+    for (int laco=0;laco<=idxClientes;laco++) {
+        
+        if (strcmp(cliente.nome, clientes[laco].nome) < 0) {
+            
+            break;
+            
+        }
+        
+        posicao++;
+        
+    }
+    
+    for (int laco=idxClientes;laco>=posicao;laco--) {
+        
+        clientes[laco+1].codigo=clientes[laco].codigo;
+        memcpy(clientes[laco+1].nome, clientes[laco].nome, sizeof clientes[laco].nome);
+        clientes[laco+1].cpfCnpj=clientes[laco].cpfCnpj;
+        clientes[laco+1].telefone=clientes[laco].telefone;
+        memcpy(clientes[laco+1].endereco, clientes[laco].endereco, sizeof clientes[laco].endereco);
+        
+    }
+    
+    clientes[posicao].codigo = cliente.codigo;
+    memcpy(clientes[posicao].nome, cliente.nome, sizeof cliente.nome);
+    clientes[posicao].cpfCnpj = cliente.cpfCnpj;
+    clientes[posicao].telefone = cliente.telefone;
+    memcpy(clientes[posicao].endereco, cliente.endereco, sizeof cliente.endereco);
+    
+    idxClientes++;
+    
+}
+
+//Excluir conta de um cliente do sistema
+
+void excluirCliente(int alvo) {
+    
+    excluirCliente(clientes[alvo].codigo);
+
+    for (int laco=alvo;laco<idxClientes;laco++) {
+        
+        memcpy(clientes[laco].nome, clientes[laco+1].nome, sizeof clientes[laco+1].nome);
+        clientes[laco].codigo=clientes[laco+1].codigo;
+        clientes[laco].cpfCnpj=clientes[laco+1].cpfCnpj;
+        clientes[laco].telefone=clientes[laco+1].telefone;
+        memcpy(clientes[laco].endereco, clientes[laco+1].endereco, sizeof clientes[laco+1].endereco);
+        
+    }
+    
+    idxClientes--;
+    
+}
+
+//Impressao na tela do cliente
+
+void mostrarCliente (Cliente cliente) {
+    
+    printf("\n");
+    
+    printf("Nome do cliente : %s\n", cliente.nome);
+    printf("Código cliente : %d\n", cliente.codigo);
+    printf("CPF/CNPJ : %ld\n", cliente.cpfCnpj);
+    printf("Telefone do cliente : %ld\n", cliente.telefone);
+    printf("Endereço do cliente : %s\n", cliente.endereco);
+    
+}
+
+//Localizaçao de cliente
+
+int localizarCliente (char tipoBusca, Cliente cliente) {
+    
+    int laco;
+    
+    tipoBusca=toupper(tipoBusca);
+    
+    for (laco=0;laco<=idxClientes;laco++) {
+        
+        if (tipoBusca=='1' && clientes[laco].codigo==cliente.codigo) {
+            
+            return laco;
+            
+        }
+        
+        if (tipoBusca=='2' && clientes[laco].cpfCnpj==cliente.cpfCnpj) {
+            
+            return laco;
+            
+        }
+        
+        if (tipoBusca=='3' && clientes[laco].nome==cliente.nome) {
+            
+            return laco;
+            
+        }
+        
+    }
+    
+    return -1;
+    
+}
+
+//Cadastramento De Clientes no sitema
+
+void criarCliente () {
+    
+    Cliente cliente;
+    
+    printf("\nCadastramento de Cliente.Informe seus dados por favor\n");
+    
+    limparBuffer();
+    printf("Insira seu Código cliente : ");
+    scanf("%d", &cliente.codigo);
+    
+    if (localizarCliente('1', cliente)>=0) {
+        
+        printf("Cliente já está cadastrado no sitema!\n");
+        return;
+        
+    }
+    
+    
+    limparBuffer();
+    printf("Insira seu CPF/CNPJ : ");
+    scanf("%ld", &cliente.cpfCnpj);
+    
+    if (localizarCliente('2', cliente)>=0) {
+        
+        printf("Cliente já está cadastrado no sistema!\n");
+        return;
+        
+    }
+    
+    limparBuffer();
+    printf("Insira seu nome : ");
+    fgets(cliente.nome, 100, stdin);
+
+    printf("Insira seu endereço : ");
+    fgets(cliente.endereco, 100,stdin);
+    
+    printf("Insira seu telefone : ");
+    scanf("%ld", &cliente.telefone);
+    limparBuffer();
+    
+    incluirCliente(cliente);
+    
+    printf("\nCliente cadastrado com sucesso!\n\n");
+    
+}
+
+//Listagem de cliente
+
+void listarCliente () {
+    
+    if (idxClientes==-1) {
+        
+        printf("\nNenhum cliente está cadastrado no sistema!\n");
+        return;
+        
+    } else {
+        
+        printf("\nLista dos clientes já cadastrados no sitema :\n");
+        
+        int laco;
+        
+        for (laco=0;laco<=idxClientes;laco++) {
+            
+            mostrarCliente(clientes[laco]);
+            
+        }
+        
+    }
+    
+}
+
+ //Localizar Cliente
+
+void procurarCliente () {
+    
+    char opcao;
+    
+    Cliente cliente;
+    
+    printf("\nLocalizar cliente atraves de : \n");
+    printf("1 - Nome\n");
+    printf("2 - Código cliente\n");
+    printf("3 - CPF/CNPJ\n");
+    
+    scanf("%s", &opcao);
+    
+    switch (toupper(opcao)) {
+        
+        case '1':
+            limparBuffer();
+            printf("\nInsira o nome : ");
+            fgets(cliente.nome, 100, stdin);
+            break;
+       
+        case '2':
+            limparBuffer();
+            printf("\nInsira o Código cliente : ");
+            scanf("%d", &cliente.codigo);
+            break;
+        
+        case '3':
+            limparBuffer();
+            printf("\nInsira o CPF/CNPJ : ");
+            scanf("%ld", &cliente.cpfCnpj);
+            break;
+        
+        default :
+            return;
+        
+    }
+    
+    int alvo=localizarCliente(opcao, cliente);
+    
+    if (alvo < 0) {
+        
+        printf("\nErro : O(A) Cliente não  foi encontrado(a)!!\n");
+        
+    } else {
+        
+        mostrarCliente(clientes[alvo]);
+        
+    }
+    
+}
+
+//Atualização de uma conta para um cliente
+
+void atualizacaoDoCliente () {
+    
+    char opcao;
+    
+    Cliente cliente;
+    
+    printf("\nLocalizar cliente atraves de : \n");
+    printf("1 - Código cliente\n");
+    printf("2 - CPF/CNPJ\n");
+    
+    limparBuffer();
+    
+    scanf("%c", &opcao);
+    
+    switch (toupper(opcao)) {
+        
+        case '1':
+            limparBuffer();
+            printf("\nInsira o código cliente: ");
+            scanf("%d", &cliente.codigo);
+            break;
+        
+        case '2':
+            limparBuffer();
+            printf("\nInsira o CPF/CNPJ: ");
+            scanf("%ld", &cliente.cpfCnpj);
+            break;
+        
+        default:
+            return;
+        
+    }
+    
+    int alvo=localizarCliente(opcao, cliente);
+    
+    if (alvo < 0) {
+        
+        printf("\nErro : O(a) Cliente não encontrado(a)!!\n");
+        
+    } else {
+        
+        mostrarCliente(clientes[alvo]);
+        
+        printf("\nO(A) senhor(a) deseja realemente atualizar esta conta? : \n");
+        printf("1 - Aceitar\n");
+        printf("2 - Negar\n");
+        
+        char confirma='x';
+        
+        while (confirma != '1' && confirma != '2') {
+            
+            limparBuffer();
+            
+            scanf("%c", &confirma);
+            
+            confirma=toupper(confirma);
+            
+        }
+        
+        if (confirma == '1') {
+            
+            limparBuffer();
+            printf("Insira Código : ");
+            scanf("%d", &cliente.codigo);
+            
+            if (localizarCliente('1', cliente)>=0 && localizarCliente('1', cliente) != alvo) {
+                
+                printf("Cliente já cadastrado!\n");
+                return;
+                
+            }
+            
+            
+            limparBuffer();
+            printf("Insira o CPF/CNPJ : ");
+            scanf("%ld", &cliente.cpfCnpj);
+            
+            if (localizarCliente('2', cliente)>=0 && localizarCliente('2', cliente) != alvo) {
+                
+                printf("Cliente já está cadastrado!\n");
+                return;
+                
+            }
+            
+            limparBuffer();
+            printf("Insira o nome do cliente por favor: ");
+            fgets(cliente.nome, 100, stdin);
+            
+            limparBuffer();
+            printf("Insira  o endereço do cliente por favor : ");
+            fgets(cliente.endereco, 100,stdin);
+            
+            limparBuffer();
+            printf("Insira o telefone do cliente por favor : ");
+            scanf("%ld", &cliente.telefone);
+            
+            excluirCliente(alvo);
+            
+            incluirCliente(cliente);
+            
+            printf("\nCliente foi alterado com sucesso!\n\n");
+            
+        }
+        
+    }
+    
+}
+
+//Excluir o Cliente do sistema de contas 
+
+void exclusaoCliente () {
+    
+    char opcao;
+    
+    Cliente cliente;
+    
+    printf("\nLocalizar cliente atraves de : \n");
+    printf("1 - Código cliente \n");
+    printf("2 - CPF/CNPJ\n");
+    
+    limparBuffer();
+    
+    scanf("%c", &opcao);
+    
+    switch (toupper(opcao)) {
+        
+        case '1':
+            limparBuffer();
+            printf("\nInsira o código cliente: ");
+            scanf("%d", &cliente.codigo);
+            break;
+        
+        case '2':
+            limparBuffer();
+            printf("\nInsira o CPF/CNPJ: ");
+            scanf("%ld", &cliente.cpfCnpj);
+            break;
+        
+        default:
+            return;
+    }
+    
+    int alvo=localizarCliente(opcao, cliente);
+    
+    if (alvo < 0) {
+        
+        printf("\nErro : Cliente não foi encontrado!!\n");
+        
+    } else {
+        
+        mostrarCliente(clientes[alvo]);
+        
+        printf("\n O(A) senhor(a) deseja realmente apagar esta conta? : \n");
+        printf("1 - Confirmar\n");
+        printf("2 - Negar\n");
+        
+        char confirma='x';
+        
+        while (confirma != '1' && confirma != '2') {
+            
+            limparBuffer();
+            
+            scanf("%c", &confirma);
+            
+            confirma=toupper(confirma);
+            
+        }
+        
+        if (confirma == '1') {
+            
+            excluirCliente(alvo);
+            
+            printf("\nCliente  foi excluido com sucesso!\n");
+            
+        }
+        
+    }
+    
+}
+
+void mostrarConta(Conta conta) {
+
+    printf("\n");
+    
+    printf("Código cliente : %d\n", conta.codigoCliente);
+    printf("Agência do cliente : %d\n", conta.agencia);
+    printf("Número da conta : %d\n", conta.numeroDaConta);
+    printf("Saldo em conta : %0.2f\n", conta.saldo);
+}
+
+void incluirConta (Conta conta) {
+    
+    idxContas++;
+
+    contas[idxContas].codigoCliente=conta.codigoCliente;
+    contas[idxContas].agencia=conta.agencia;
+    contas[idxContas].numeroDaConta=conta.numeroDaConta;
+    contas[idxContas].saldo=0;
+    
+}
+int buscarPrimeiraContaDoCliente (int codigoCliente) {
+
+    int laco;
+    for (laco = 0; laco <= idxContas; laco++) {
+
+        if (codigoCliente == contas[laco].codigoCliente) {
+
+            return laco;
+        }
+    }
+
+    return -1;
+}
+
+void excluirConta(int idx) {
+    
+    if (idx >= 0 && idx <= idxContas) {
+
+        excluirMovimentosDaConta(idx);
+
+        int laco;
+
+        for (laco = idx; laco < idxContas; laco++) {
+
+            contas[laco].codigoCliente=contas[laco+1].codigoCliente;
+            contas[laco].agencia=contas[laco+1].agencia;
+            contas[laco].numeroDaConta=contas[laco+1].numeroDaConta;
+            contas[laco].saldo=contas[laco+1].saldo;
+
+        }
+        for (laco = 0; laco <= idxMovimentos; laco++) {
+            if (movimentos[laco].idxConta >= idx) {
+                movimentos[laco].idxConta--;   
+            }
+        }
+        idxContas--;
+    }
+}
+
+void excluirContasDoCliente (int codigoCliente) {
+
+    int alvo;
+
+    while ((alvo = buscarPrimeiraContaDoCliente(codigoCliente)) >= 0) {
+
+        excluirConta(alvo);   
+    }
+}
+
+int localizarConta(Conta conta) {
+
+    int laco;
+
+    for (laco=0;laco<=idxContas;laco++) {
+
+        if (conta.agencia == contas[laco].agencia && conta.numeroDaConta == contas[laco].numeroDaConta) {
+            return laco;     
+      }
+    }
+    
+    return -1;
+}
+
+void listarContasCliente(Cliente cliente) {
+
+    int laco;
+
+    printf("\nContas de %s :\n", cliente.nome);
+    
+    for (laco=0;laco<=idxContas;laco++) {
+
+        if (contas[laco].codigoCliente == cliente.codigo){
+
+            mostrarConta(contas[laco]);
+        }
+    }
+}
+
+void listarTodasContas() {
+
+    int laco;
+
+    for (laco=0;laco<=idxClientes;laco++) {
+
+        listarContasCliente(clientes[laco]);
+        }
+    }
+void listarContasPorCliente() {
+    
+    char opcao;
+    
+    Cliente cliente;
+
+    printf("\nLocalizar Cliente(s) atraves : \n");
+    printf("1- Código\n");
+    printf("2- CPF/CNPJ\n");
+
+    limparBuffer();
+    
+    scanf("%c", &opcao);
+    switch (toupper(opcao)) {
+       
+        case '1':
+            limparBuffer();
+            printf("\nInsira por favor o Código cliente : ");
+            scanf("%d", &cliente.codigo);
+            break;
+        
+        case '2':
+            limparBuffer();
+            printf("\nInsira por favor o CPF/CNPJ : ");
+            scanf("%ld", &cliente.cpfCnpj);
+            break;
+        
+        default :
+            return;        
+    }
+    
+    int alvo=localizarCliente(opcao, cliente);
+    
+    if (alvo < 0) {
+        
+        printf("\nErro : Cliente não  foi encontrado!!\n");
+        
+    } else {
+        listarContasCliente(clientes[alvo]);  
+    }
+}
+
+void criarConta () {
+    
+    char opcao;
+    
+    Cliente cliente;
+
+    printf("\nCriação de uma conta atraves de : \n");
+    printf("1 - Código cliente\n");
+    printf("2 - CPF/CNPJ\n");
+
+    limparBuffer();
+    
+    scanf("%c", &opcao);
+    
+    switch (toupper(opcao)) {
+       
+        case '1':
+            limparBuffer();
+            printf("\nInsira por favor o Código : ");
+            scanf("%d", &cliente.codigo);
+            break;
+        
+        case '2':
+            limparBuffer();
+            printf("\nInsira por favor o CPF/CNPJ : ");
+            scanf("%ld", &cliente.cpfCnpj);
+            break;
+        
+        default :
+            return;
+         }
+    
+    int alvo=localizarCliente(opcao, cliente);
+    
+    Conta conta;
+
+    if (alvo < 0) {
+        
+        printf("\nErro : Cliente não foi encontrado!!\n");
+        
+    } else {
+
+        conta.codigoCliente = clientes[alvo].codigo;
+
+        limparBuffer();
+        printf("Insira a agência do cliente por favor : ");
+        scanf("%d", &conta.agencia);
+
+        limparBuffer();
+        printf("Insira o número da conta por favor : ");
+        scanf("%d", &conta.numeroDaConta);
+        
+        if (localizarConta(conta) >= 0) {
+
+            printf("Conta já cadastrada!!");
+            return;
+             }
+
+        incluirConta(conta);
+
+        printf("\nConta Registrada!\n");       
+
+    }
+}
+
+void exibirExtrato() {
+
+    Conta conta;
+
+    limparBuffer();
+    printf("\nInsira a agência do cliente por favor : ");
+    scanf("%d", &conta.agencia);
+
+    limparBuffer();
+    printf("Insira o número da conta por favor : ");
+    scanf("%d", &conta.numeroDaConta);
+
+    int alvo=localizarConta(conta);
+
+    if (alvo < 0) {
+
+        printf("\nConta não encontrada!\n");
+        return;
+
+    } else {
+      
+      printf("\n");
+    
+      printf("Código cliente : %d\n", contas[alvo].codigoCliente);
+      printf("Agência do cliente : %d\n", contas[alvo].agencia);
+      printf("Número da conta : %d\n", contas[alvo].numeroDaConta);
+      printf("Saldo em conta : %0.2f\n", contas[alvo].saldo);
+      
+      int qtdeDias,qtdeSegundos,laco;
+      limparBuffer();
+      printf("Quantidade de dias no extrato : ");
+      scanf("%d", &qtdeDias);
+
+      qtdeSegundos = qtdeDias * 24 * 60 * 60;
+      time_t hoje = time(NULL);
+    
+      for (laco=0;laco<=idxMovimentos;laco++) {
+
+        if (movimentos[laco].idxConta == alvo && movimentos[laco].segundos >= (hoje - qtdeSegundos)) {
+            
+            printf("\n");
+            mostrarMovimento(movimentos[laco]);   
+        }
+      }
+    }
+}
+
+void gerenciarCliente () {
+    
+    char opcao;
+    
+    while (1==1) {
+        
+        printf("\n======== !Gerenciamento de Clientes! ========\n");
+        printf("Escolha uma opção para continuar:\n");
+        printf("1 - Cadastrar um cliente\n");
+        printf("2 - Listar todos os clientes cadastrados\n");
+        printf("3 - Buscar cliente já cadastrado\n");
+        printf("4 - Atualizar um cliente já cadastrado\n");
+        printf("5 - Excluir um cliente cadastrado\n");
+        printf("6 - Sair\n");
+        
+        limparBuffer();
+        
+        scanf("%c", &opcao);
+        
+        switch (toupper(opcao)) {
+            
+            case '6':
+                return;
+                
+            case '1':
+                criarCliente();
+                break;
+                
+            case '2':
+                listarCliente();
+                break;
+            
+            case '3':
+                procurarCliente();
+                break;
+                
+            case '4':
+                atualizacaoDoCliente();
+                break;
+            
+            case '5':
+                exclusaoCliente();
+                break;   
+        }   
+    }
+}
+
+void gerenciarConta () {
+    
+    char opcao;
+    
+    while (1==1) {
+        
+        printf("\n============= Gerenciamento de contas =============\n");
+        printf("Escolha uma opção para continuar:\n");
+        printf("1 - Fazer uma lista com todas as contas já cadastradas no sistema\n");
+        printf("2 - Para cadastrar uma conta para um(a) cliente\n");
+        printf("3 - Para listar todas as contas de um(a) cliente\n");
+        printf("4 - Para realizar saque\n");
+        printf("5 - Para eealizar depósito\n");
+        printf("6 - Para realizar transfêrencia entre contas\n");
+        printf("7 - Para exibir extrato\n");
+        printf("8 - Para sair\n");
+        
+        limparBuffer();
+        
+        scanf("%c", &opcao);
+        
+        switch (toupper(opcao)) {
+            
+            case '8':
+                return;
+                
+                case '1':
+                listarTodasContas();
+                break;
+            
+            case '2':
+                criarConta();
+                break;
+            
+            case '3':
+                listarContasPorCliente();
+                break;
+                
+            case '4':
+                saqueConta();
+                break;
+                
+            case '5':
+                depositarConta();
+                break;
+
+            case '6':
+                transferenciaConta();
+                break;
+
+            case '7':
+                exibirExtrato();
+		}
+    }
+}
+
+int main(void) {
+    
+    char opcao;
+    
+    while (1==1) {
+        
+        printf("\n=============== !Seja Bem-Vindo Senhor(a)! ===============\n");
+        printf("Escolha uma opção para continuar:\n");
+        printf("1 - Para gerenciar clientes\n");
+        printf("2 - Para gerenciar contas\n");
+        printf("3 - Para sair\n");
+        
+        limparBuffer();
+
+        opcao=getchar();
+        
+        switch (toupper(opcao)) {
+            
+            case '1':
+                gerenciarCliente();
+                break;
+            
+            case '2':
+                gerenciarConta();
+                break;
+            
+            case '3':
+                exit(0);
+                break;
+            } 
+         }
+    }
+
